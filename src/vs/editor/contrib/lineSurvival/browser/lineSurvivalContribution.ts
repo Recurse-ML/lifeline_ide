@@ -9,7 +9,6 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { ICodeEditor } from '../../../browser/editorBrowser.js';
 import { DynamicCssRules } from '../../../browser/editorDom.js';
 import { EditorContributionInstantiation, registerEditorContribution } from '../../../browser/editorExtensions.js';
-import { EditorOption } from '../../../common/config/editorOptions.js';
 import { IEditorContribution, IEditorDecorationsCollection } from '../../../common/editorCommon.js';
 import { IModelDeltaDecoration, TrackedRangeStickiness } from '../../../common/model.js';
 import { ModelDecorationOptions } from '../../../common/model/textModel.js';
