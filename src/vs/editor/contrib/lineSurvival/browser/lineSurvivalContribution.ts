@@ -33,7 +33,9 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 	private readonly _ruleFactory: DynamicCssRules;
 	private readonly _cssClassRefs = this._register(new DisposableStore());
 
-	private _isLineSurvivalEnabled: boolean;
+	private _isLineSurvivalEnabled: boolean = true;
+	private _endpoint: string = 'http://localhost:8080/predict';
+	private _debounceMs: number = 1000;
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -44,7 +46,7 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 		this._ruleFactory = new DynamicCssRules(this._editor);
 
 		this._register(_editor.onDidChangeModel(() => {
-			this._isLineSurvivalEnabled = this.isEnabled();
+			this.updateConfiguration();
 			this.updateLineSurvival();
 		}));
 
@@ -52,7 +54,7 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 
 		this._register(_editor.onDidChangeConfiguration((e) => {
 			const prevIsEnabled = this._isLineSurvivalEnabled;
-			this._isLineSurvivalEnabled = this.isEnabled();
+			this.updateConfiguration();
 			if (prevIsEnabled !== this._isLineSurvivalEnabled) {
 				if (this._isLineSurvivalEnabled) {
 					this.updateLineSurvival();
@@ -62,10 +64,33 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 			}
 		}));
 
+		this._register(this._configurationService.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration('editor.lineSurvival')) {
+				const prevIsEnabled = this._isLineSurvivalEnabled;
+				this.updateConfiguration();
+				if (prevIsEnabled !== this._isLineSurvivalEnabled) {
+					if (this._isLineSurvivalEnabled) {
+						this.updateLineSurvival();
+					} else {
+						this.removeAllDecorations();
+					}
+				}
+			}
+		}));
+
 		this._timeoutTimer = null;
 		this._computePromise = null;
-		this._isLineSurvivalEnabled = this.isEnabled();
+		this.updateConfiguration();
 		this.updateLineSurvival();
+	}
+
+	private updateConfiguration(): void {
+		const model = this._editor.getModel();
+		const resource = model?.uri;
+
+		this._isLineSurvivalEnabled = this._configurationService.getValue<boolean>('editor.lineSurvival.enabled', { resource }) ?? true;
+		this._endpoint = this._configurationService.getValue<string>('editor.lineSurvival.endpoint', { resource }) ?? 'http://localhost:8080/predict';
+		this._debounceMs = this._configurationService.getValue<number>('editor.lineSurvival.debounceMs', { resource }) ?? 1000;
 	}
 
 	isEnabled(): boolean {
@@ -73,8 +98,7 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 		if (!model) {
 			return false;
 		}
-		// For now, enable for all file types. Later this could be configurable
-		return this._configurationService.getValue<boolean>('editor.lineSurvival.enabled') ?? true;
+		return this._isLineSurvivalEnabled;
 	}
 
 	static get(editor: ICodeEditor): LineSurvivalContribution | null {
@@ -105,7 +129,7 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 				this._timeoutTimer.cancelAndSet(() => {
 					this._timeoutTimer = null;
 					this.beginCompute();
-				}, LineSurvivalContribution.RECOMPUTE_TIME);
+				}, this._debounceMs);
 			}
 		}));
 
@@ -147,9 +171,7 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 	}
 
 	private async callLineSurvivalAPI(lines: string[]): Promise<number[]> {
-		const endpoint = this._configurationService.getValue<string>('editor.lineSurvival.endpoint') ?? 'http://localhost:8080/predict';
-
-		const response = await fetch(endpoint, {
+		const response = await fetch(this._endpoint, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
