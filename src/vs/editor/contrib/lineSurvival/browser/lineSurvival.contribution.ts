@@ -33,6 +33,21 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			maximum: 10000,
 			scope: ConfigurationScope.LANGUAGE_OVERRIDABLE,
 			markdownDescription: nls.localize('lineSurvival.debounceMs', 'Delay in milliseconds before sending line content to the prediction service after the last edit. Higher values reduce API calls but increase latency.')
+		},
+		'editor.lineSurvival.colorIntensity': {
+			type: 'number',
+			default: 0.15,
+			minimum: 0.05,
+			maximum: 0.5,
+			scope: ConfigurationScope.LANGUAGE_OVERRIDABLE,
+			markdownDescription: nls.localize('lineSurvival.colorIntensity', 'Controls the intensity of the background colors for line survival predictions. Lower values create more subtle highlighting that is easier on the eyes.')
+		},
+		'editor.lineSurvival.colorStyle': {
+			type: 'string',
+			enum: ['subtle', 'vibrant', 'monochrome'],
+			default: 'subtle',
+			scope: ConfigurationScope.LANGUAGE_OVERRIDABLE,
+			markdownDescription: nls.localize('lineSurvival.colorStyle', 'Color style for line survival predictions. "subtle" uses muted theme-aware colors, "vibrant" uses bright colors, "monochrome" uses grayscale.')
 		}
 	}
 });

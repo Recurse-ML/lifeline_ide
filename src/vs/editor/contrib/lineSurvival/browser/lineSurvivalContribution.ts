@@ -36,6 +36,8 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 	private _isLineSurvivalEnabled: boolean = true;
 	private _endpoint: string = 'http://localhost:8080/predict';
 	private _debounceMs: number = 1000;
+	private _colorIntensity: number = 0.15;
+	private _colorStyle: string = 'subtle';
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -67,13 +69,21 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 		this._register(this._configurationService.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration('editor.lineSurvival')) {
 				const prevIsEnabled = this._isLineSurvivalEnabled;
+				const prevColorIntensity = this._colorIntensity;
+				const prevColorStyle = this._colorStyle;
+
 				this.updateConfiguration();
+
 				if (prevIsEnabled !== this._isLineSurvivalEnabled) {
 					if (this._isLineSurvivalEnabled) {
 						this.updateLineSurvival();
 					} else {
 						this.removeAllDecorations();
 					}
+				} else if (this._isLineSurvivalEnabled &&
+					(prevColorIntensity !== this._colorIntensity || prevColorStyle !== this._colorStyle)) {
+					// Color settings changed, trigger a redraw with current data
+					this.beginCompute();
 				}
 			}
 		}));
@@ -91,6 +101,8 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 		this._isLineSurvivalEnabled = this._configurationService.getValue<boolean>('editor.lineSurvival.enabled', { resource }) ?? true;
 		this._endpoint = this._configurationService.getValue<string>('editor.lineSurvival.endpoint', { resource }) ?? 'http://localhost:8080/predict';
 		this._debounceMs = this._configurationService.getValue<number>('editor.lineSurvival.debounceMs', { resource }) ?? 1000;
+		this._colorIntensity = this._configurationService.getValue<number>('editor.lineSurvival.colorIntensity', { resource }) ?? 0.15;
+		this._colorStyle = this._configurationService.getValue<string>('editor.lineSurvival.colorStyle', { resource }) ?? 'subtle';
 	}
 
 	isEnabled(): boolean {
@@ -212,22 +224,7 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 	}
 
 	private getDecorationOptions(probability: number): ModelDecorationOptions | null {
-		// Create a gradient from red (low) to yellow (medium) to green (high)
-		let backgroundColor: string;
-
-		if (probability >= 0.7) {
-			// High probability - green tint
-			const intensity = Math.min(0.3, (probability - 0.7) / 0.3 * 0.3);
-			backgroundColor = `rgba(0, 255, 0, ${intensity})`;
-		} else if (probability >= 0.4) {
-			// Medium probability - yellow tint
-			const intensity = Math.min(0.3, (probability - 0.4) / 0.3 * 0.3);
-			backgroundColor = `rgba(255, 255, 0, ${intensity})`;
-		} else {
-			// Low probability - red tint
-			const intensity = Math.min(0.3, (0.4 - probability) / 0.4 * 0.3);
-			backgroundColor = `rgba(255, 0, 0, ${intensity})`;
-		}
+		const backgroundColor = this.getBackgroundColor(probability);
 
 		// Create a dynamic CSS class for this specific background color
 		const cssClassRef = this._cssClassRefs.add(
@@ -242,6 +239,70 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 			isWholeLine: true,
 			stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
 		});
+	}
+
+	private getBackgroundColor(probability: number): string {
+		// Normalize probability to 0-1 range and apply intensity scaling
+		const normalizedProbability = Math.max(0, Math.min(1, probability));
+		const intensity = this._colorIntensity;
+
+		switch (this._colorStyle) {
+			case 'monochrome':
+				return this.getMonochromeColor(normalizedProbability, intensity);
+			case 'vibrant':
+				return this.getVibrantColor(normalizedProbability, intensity);
+			case 'subtle':
+			default:
+				return this.getSubtleColor(normalizedProbability, intensity);
+		}
+	}
+
+	private getSubtleColor(probability: number, intensity: number): string {
+		// Use muted, theme-aware colors that are easier on the eyes
+		if (probability >= 0.7) {
+			// High survival - soft green with blue undertones
+			const alpha = intensity * (0.5 + (probability - 0.7) / 0.3 * 0.5);
+			return `rgba(46, 125, 50, ${alpha})`; // Material Design Green 700 with low alpha
+		} else if (probability >= 0.4) {
+			// Medium survival - warm amber
+			const alpha = intensity * (0.5 + (probability - 0.4) / 0.3 * 0.5);
+			return `rgba(255, 143, 0, ${alpha})`; // Material Design Orange 500 with low alpha
+		} else {
+			// Low survival - muted red
+			const alpha = intensity * (0.5 + (0.4 - probability) / 0.4 * 0.5);
+			return `rgba(198, 40, 40, ${alpha})`; // Material Design Red 700 with low alpha
+		}
+	}
+
+	private getVibrantColor(probability: number, intensity: number): string {
+		// Original bright colors but with configurable intensity
+		if (probability >= 0.7) {
+			const alpha = intensity * (0.5 + (probability - 0.7) / 0.3 * 0.5);
+			return `rgba(0, 255, 0, ${alpha})`;
+		} else if (probability >= 0.4) {
+			const alpha = intensity * (0.5 + (probability - 0.4) / 0.3 * 0.5);
+			return `rgba(255, 255, 0, ${alpha})`;
+		} else {
+			const alpha = intensity * (0.5 + (0.4 - probability) / 0.4 * 0.5);
+			return `rgba(255, 0, 0, ${alpha})`;
+		}
+	}
+
+	private getMonochromeColor(probability: number, intensity: number): string {
+		// Grayscale colors for minimal distraction
+		if (probability >= 0.7) {
+			// High survival - light gray
+			const alpha = intensity * (0.3 + (probability - 0.7) / 0.3 * 0.4);
+			return `rgba(200, 200, 200, ${alpha})`;
+		} else if (probability >= 0.4) {
+			// Medium survival - medium gray
+			const alpha = intensity * (0.3 + (probability - 0.4) / 0.3 * 0.4);
+			return `rgba(150, 150, 150, ${alpha})`;
+		} else {
+			// Low survival - darker gray
+			const alpha = intensity * (0.3 + (0.4 - probability) / 0.4 * 0.4);
+			return `rgba(100, 100, 100, ${alpha})`;
+		}
 	}
 
 	private stop(): void {
