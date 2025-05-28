@@ -39,6 +39,7 @@ import './contrib/insertFinalNewLine/browser/insertFinalNewLine.js';
 import './contrib/lineSelection/browser/lineSelection.js';
 import './contrib/linesOperations/browser/linesOperations.js';
 import './contrib/linkedEditing/browser/linkedEditing.js';
+import './contrib/lineSurvival/browser/lineSurvival.contribution.js';
 import './contrib/links/browser/links.js';
 import './contrib/longLinesHelper/browser/longLinesHelper.js';
 import './contrib/multicursor/browser/multicursor.js';
