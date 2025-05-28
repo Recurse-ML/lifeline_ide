@@ -48,12 +48,6 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: 'subtle',
 			scope: ConfigurationScope.LANGUAGE_OVERRIDABLE,
 			markdownDescription: nls.localize('lineSurvival.colorStyle', 'Color style for line survival predictions. "subtle" uses muted theme-aware colors, "vibrant" uses bright colors, "monochrome" uses grayscale.')
-		},
-		'editor.lineSurvival.showProbabilities': {
-			type: 'boolean',
-			default: true,
-			scope: ConfigurationScope.LANGUAGE_OVERRIDABLE,
-			markdownDescription: nls.localize('lineSurvival.showProbabilities', 'Show probability numbers on the right side of each line. When enabled, displays the survival probability as a percentage.')
 		}
 	}
 });

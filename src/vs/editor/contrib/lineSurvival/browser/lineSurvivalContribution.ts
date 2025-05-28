@@ -38,8 +38,6 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 	private _debounceMs: number = 1000;
 	private _colorIntensity: number = 0.15;
 	private _colorStyle: string = 'subtle';
-	private _showProbabilities: boolean = true;
-	private _currentLineSurvivalData: ILineSurvivalData[] = [];
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -73,7 +71,6 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 				const prevIsEnabled = this._isLineSurvivalEnabled;
 				const prevColorIntensity = this._colorIntensity;
 				const prevColorStyle = this._colorStyle;
-				const prevShowProbabilities = this._showProbabilities;
 
 				this.updateConfiguration();
 
@@ -84,11 +81,9 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 						this.removeAllDecorations();
 					}
 				} else if (this._isLineSurvivalEnabled &&
-					(prevColorIntensity !== this._colorIntensity ||
-						prevColorStyle !== this._colorStyle ||
-						prevShowProbabilities !== this._showProbabilities)) {
-					// Settings changed, trigger a redraw with current data
-					this.updateDecorations(this._currentLineSurvivalData);
+					(prevColorIntensity !== this._colorIntensity || prevColorStyle !== this._colorStyle)) {
+					// Color settings changed, trigger a redraw with current data
+					this.beginCompute();
 				}
 			}
 		}));
@@ -108,7 +103,6 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 		this._debounceMs = this._configurationService.getValue<number>('editor.lineSurvival.debounceMs', { resource }) ?? 1000;
 		this._colorIntensity = this._configurationService.getValue<number>('editor.lineSurvival.colorIntensity', { resource }) ?? 0.15;
 		this._colorStyle = this._configurationService.getValue<string>('editor.lineSurvival.colorStyle', { resource }) ?? 'subtle';
-		this._showProbabilities = this._configurationService.getValue<boolean>('editor.lineSurvival.showProbabilities', { resource }) ?? true;
 	}
 
 	isEnabled(): boolean {
@@ -181,7 +175,6 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 
 		try {
 			const lineSurvivalData = await this._computePromise;
-			this._currentLineSurvivalData = lineSurvivalData;
 			this.updateDecorations(lineSurvivalData);
 			this._computePromise = null;
 		} catch (e) {
@@ -240,37 +233,12 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 			})
 		);
 
-		const options: any = {
+		return ModelDecorationOptions.createDynamic({
 			description: 'lineSurvival',
 			className: cssClassRef.className,
 			isWholeLine: true,
 			stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-		};
-
-		// Add probability text on the right side if enabled
-		if (this._showProbabilities) {
-			const percentage = Math.round(probability * 100);
-			options.after = {
-				content: `${percentage}%`,
-				inlineClassName: this.getProbabilityTextClassName(),
-			};
-		}
-
-		return ModelDecorationOptions.createDynamic(options);
-	}
-
-	private getProbabilityTextClassName(): string {
-		// Create a CSS class for the probability text styling
-		const cssClassRef = this._cssClassRefs.add(
-			this._ruleFactory.createClassNameRef({
-				color: 'rgba(128, 128, 128, 0.7)',
-				fontSize: '0.85em',
-				fontFamily: 'monospace',
-				margin: '0 0 0 8px',
-				opacity: '0.6'
-			})
-		);
-		return cssClassRef.className;
+		});
 	}
 
 	private getBackgroundColor(probability: number): string {
@@ -351,7 +319,6 @@ export class LineSurvivalContribution extends Disposable implements IEditorContr
 
 	private removeAllDecorations(): void {
 		this._decorationsCollection.clear();
-		this._currentLineSurvivalData = [];
 	}
 }
 
